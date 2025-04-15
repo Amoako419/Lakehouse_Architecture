@@ -34,7 +34,7 @@ jobs:
           pip list # List installed packages
 
       - name: Run Pytest Integration Tests
-        run: pytest tests/test_glue_job_integration.py -v # -v for verbose output
+        run: pytest tests/test_glue_etl.py -v # -v for verbose output
         env:
            PYSPARK_PYTHON: python # Ensure pytest uses the correct python
            PYSPARK_DRIVER_PYTHON: python

@@ -11,9 +11,6 @@ from delta.tables import DeltaTable
 from pyspark.sql.functions import col, lit, current_timestamp, isnan, when, count, to_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType, DoubleType, DateType
 
-# ==============================================================================
-# Global Scope: Definitions available for import
-# ==============================================================================
 
 
 logger = logging.getLogger()
@@ -220,9 +217,6 @@ def validate_data(df, schema_name, reference_data=None):
 
     return valid_records, invalid_records
 
-
-# Function to process and write a dataset
-# *** NOTE: Added spark, rejected_path, job_name arguments for testability ***
 @timed_execution
 def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job_name, spark, reference_data=None):
     """
@@ -386,8 +380,6 @@ def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job
         # Release the final cached dataframe
         deduplicated_data_cached.unpersist()
 
-        # Return the processed (deduplicated) data for potential chaining/caching in main flow
-        # Must return the DataFrame *before* it was unpersisted if needed later
         return deduplicated_data # Or return the path, or success status
 
     except Exception as e:
@@ -400,10 +392,6 @@ def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job
         if 'deduplicated_data_cached' in locals() and deduplicated_data_cached.is_cached: deduplicated_data_cached.unpersist()
         raise e
 
-
-# ==============================================================================
-# Main execution logic (for Glue job runtime)
-# ==============================================================================
 def main():
     """Main function orchestrating the Glue job execution."""
     # Initialize Spark and Glue contexts *inside main*
@@ -548,8 +536,6 @@ def main():
         log("Job execution completed")
         # Commit the Glue job
         job.commit()
-
-
 
 if __name__ == "__main__":
     log("Starting Glue job execution via main entry point")
