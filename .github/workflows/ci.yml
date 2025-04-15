@@ -45,11 +45,6 @@ jobs:
     # Run only on direct pushes to main, not on PRs
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Add environment variables for AWS config if needed, or use inputs
-    # env:
-    #   GLUE_SCRIPT_S3_BUCKET: your-glue-scripts-bucket
-    #   GLUE_SCRIPT_S3_KEY: lakehouse_scripts/glue_job.py
-    #   GLUE_JOB_NAME: Lakehouse # Your Glue Job Name
     permissions:
       id-token: write # Required for configure-aws-credentials using OIDC
       contents: read
@@ -68,13 +63,16 @@ jobs:
 
       - name: Install AWS CLI
         run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
-          aws --version
+            python3 -m venv awsclivenv
+            source awsclivenv/bin/activate
+            pip install --upgrade pip
+            pip install awscli
+            aws --version
+        
 
       - name: Upload Glue Script to S3
         run: |
-          aws s3 cp src/glue_job.py s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}
+          aws s3 cp src/glue_etl.py s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}
         env:
           # Get bucket/key from secrets or hardcode if static (not recommended)
           GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}

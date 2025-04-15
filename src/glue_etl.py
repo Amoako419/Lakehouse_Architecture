@@ -12,7 +12,7 @@ from pyspark.sql.functions import col, lit, current_timestamp, isnan, when, coun
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType, DoubleType, DateType
 
 
-
+# Configure logging (Keep global)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO) # Default, can be overridden by job args later
 
@@ -217,6 +217,7 @@ def validate_data(df, schema_name, reference_data=None):
 
     return valid_records, invalid_records
 
+
 @timed_execution
 def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job_name, spark, reference_data=None):
     """
@@ -380,6 +381,8 @@ def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job
         # Release the final cached dataframe
         deduplicated_data_cached.unpersist()
 
+        # Return the processed (deduplicated) data for potential chaining/caching in main flow
+        # Must return the DataFrame *before* it was unpersisted if needed later
         return deduplicated_data # Or return the path, or success status
 
     except Exception as e:
@@ -391,6 +394,7 @@ def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job
         if 'rejected_data_cached' in locals() and rejected_data_cached.is_cached: rejected_data_cached.unpersist()
         if 'deduplicated_data_cached' in locals() and deduplicated_data_cached.is_cached: deduplicated_data_cached.unpersist()
         raise e
+
 
 def main():
     """Main function orchestrating the Glue job execution."""
@@ -509,7 +513,7 @@ def main():
             schema_name="order_items",
             output_path=order_items_output,
             rejected_path=rejected_path, # from args
-            job_name=job_name,           
+            job_name=job_name,           # from args
             spark=spark,                 # from GlueContext
             reference_data=reference_data
         )
