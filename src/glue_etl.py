@@ -521,7 +521,7 @@ def main():
             schema_name="order_items",
             output_path=order_items_output,
             rejected_path=rejected_path, # from args
-            job_name=job_name,           # from args
+            job_name=job_name,           
             spark=spark,                 # from GlueContext
             reference_data=reference_data
         )
