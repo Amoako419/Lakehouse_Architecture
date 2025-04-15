@@ -4,6 +4,8 @@
 
 This project implements a production-grade Lakehouse architecture on AWS designed to process e-commerce transactional data. It ingests raw CSV data from Amazon S3, processes it using AWS Glue with Spark and Delta Lake for reliability and ACID compliance, orchestrates the workflow using AWS Step Functions, and makes the curated data available for analytics via Amazon Athena. The entire process emphasizes high data reliability, schema enforcement, data freshness, and is automated using CI/CD pipelines via GitHub Actions.
 
+---
+
 ## Architecture
 
 The architecture follows a standard Lakehouse pattern with distinct zones in S3:
@@ -35,6 +37,8 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
 
 *CI/CD:* `GitHub Actions` -> `(Code Quality, Testing, Deployment)`
 
+---
+
 ## Features
 
 * **Automated Ingestion:** Detects or is triggered by new data arrivals in the S3 raw zone.
@@ -63,6 +67,8 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
 * **Notifications:** AWS Simple Notification Service (SNS)
 * **CI/CD:** GitHub Actions
 
+---
+
 ## Data Sources & Schema
 
 The pipeline processes three core datasets provided as CSV files:
@@ -89,6 +95,8 @@ The pipeline processes three core datasets provided as CSV files:
 | | order_timestamp | TIMESTAMP | |
 | | date | DATE | Potential Partition Key |
 
+---
+
 ## ETL Pipeline Steps
 
 1.  **Trigger:** The process is initiated (e.g., manually, scheduled, or via an S3 event trigger - *Note: The provided Step Function simulates the trigger*).
@@ -112,6 +120,8 @@ The pipeline processes three core datasets provided as CSV files:
 6.  **Notifications (SNS):**
     * Step Functions publish messages to an SNS topic indicating success or detailing failures at various stages (Glue Job, Archiving, Crawler, Validation).
 
+---
+
 ## Orchestration - AWS Step Functions
 
 The ETL workflow is orchestrated by an AWS Step Functions state machine.
@@ -131,6 +141,31 @@ The ETL workflow is orchestrated by an AWS Step Functions state machine.
 * `HandleValidationSuccess`: Publishes a success message to SNS.
 * `HandleGlueJobFailure`, `HandleArchiveFailure`, `HandleCrawlerFailure`, `HandleValidationFailure`: Catch errors from specific steps and publish failure notifications to SNS.
 
+## Step Function Execution
+
+The step function workflow executes each task sequentially, ensuring end-to-end ETL processing. Below is an example of a successful execution:
+
+| Step | Status | Duration |
+|------|--------|----------|
+| RunGlueJob | ✅ Succeeded | 180s |
+| CheckGlueJobStatus | ✅ Succeeded | 5s |
+| InitiateArchiveProcess | ✅ Succeeded | 10s |
+| ArchiveProcessedFiles | ✅ Succeeded | 45s |
+| CheckArchiveCompletion | ✅ Succeeded | 15s |
+| RunGlueCrawler | ✅ Succeeded | 60s |
+| WaitForCrawlerToFinish | ✅ Succeeded | 120s |
+| CheckCrawlerStatus | ✅ Succeeded | 5s |
+| Parallel Athena Queries | ✅ Succeeded | 60s |
+| HandleValidationSuccess | ✅ Succeeded | 2s |
+
+Total execution time: ~15 minutes
+
+The workflow maintains idempotency and ensures all resources are properly cleaned up, even in failure scenarios.
+<p align="center">
+    <img src="images/executed (2).svg" alt="The architecture diagram" width="100%" />
+</p>
+
+---
 
 ## Validation Rules
 
@@ -142,6 +177,8 @@ The ETL process incorporates the following validation rules:
 * **Deduplication:** Handled via `MERGE` operations based on primary keys when writing to Delta tables.
 * **Logging:** Records failing validation are logged (e.g., written to a separate 'rejected' S3 path or logged via CloudWatch).
 
+--- 
+
 ## CI/CD - GitHub Actions
 
 Automation is implemented using GitHub Actions, triggered on pushes or merges to the `main` branch. Expected workflows include:
@@ -149,6 +186,8 @@ Automation is implemented using GitHub Actions, triggered on pushes or merges to
 * **Code Quality Checks:** Linting and static analysis of Spark (Python/Scala) code.
 * **Unit Tests:** Testing individual functions or components of the Spark ETL logic.
 * **Glue Job Deployment:** Packaging and deploying the Spark script to AWS Glue.
+
+---
 
 ## Setup and Deployment
 
@@ -174,8 +213,9 @@ Automation is implemented using GitHub Actions, triggered on pushes or merges to
     * Step Functions JSON : `stepfunctions/delta-lake.json`
     * Lambda function code : `stepfunctions/lambda_function.py` 
 
-## How to Run
+---
 
+## How to Run
 1.  **Upload Data:** Place raw CSV files (`products.csv`, `orders.csv`, `order_items.csv`) into the configured S3 raw zone path (e.g., `s3://[Your-Bucket-Name]/land-folder/Data/`).
 2.  **Configure EventBridge Rule:** 
     * Create an EventBridge rule that watches for `PutObject` events in the S3 raw zone
@@ -185,3 +225,5 @@ Automation is implemented using GitHub Actions, triggered on pushes or merges to
 4.  **Check Notifications:** Monitor the subscribed SNS endpoint for success or failure messages.
 5.  **Query Data:** Once the pipeline succeeds, query the `clean_products`, `clean_orders`, and `clean_orders_items` tables in the `delta-lakehouse` database using Amazon Athena.
 
+---
+## Add images of acid complaint sql code in athena
