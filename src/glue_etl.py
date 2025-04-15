@@ -2,11 +2,11 @@ import sys
 import time
 import logging
 from datetime import datetime
-from awsglue.transforms import *
-from awsglue.utils import getResolvedOptions
+# from awsglue.transforms import *
+# from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
-from awsglue.context import GlueContext
-from awsglue.job import Job
+# from awsglue.context import GlueContext
+# from awsglue.job import Job
 from delta.tables import DeltaTable
 from pyspark.sql.functions import col, lit, current_timestamp, isnan, when, count, to_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType, DoubleType, DateType
