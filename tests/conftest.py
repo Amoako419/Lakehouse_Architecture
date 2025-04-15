@@ -21,8 +21,7 @@ def spark_session(tmp_path_factory):
     spark = (
         SparkSession.builder.appName("pytest-local-spark-delta")
         .master("local[*]")
-        # --- Delta Lake Configuration ---
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0") # Match requirements.txt
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0") 
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog",
@@ -35,8 +34,6 @@ def spark_session(tmp_path_factory):
         .config("spark.executor.memory", "1g")
         .config("spark.ui.showConsoleProgress", "false")
         .config("spark.log.level", "WARN") # Keep logs quieter during tests
-        # Set local Ivy path to avoid polluting user's home directory
-        .config("spark.jars.ivy", str(local_ivy_dir))
         .getOrCreate()
     )
     print(f"SparkSession created with warehouse: {warehouse_dir}, ivy: {local_ivy_dir}")

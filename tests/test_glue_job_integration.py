@@ -22,7 +22,7 @@ try:
     print("Successfully imported from glue_job.py")
 except ImportError as e:
     print(f"Error importing from glue_job.py: {e}")
-    pytest.skip("Could not import glue_job.py, skipping integration tests.", allow_module_level=True)
+    # pytest.skip("Could not import glue_job.py, skipping integration tests.", allow_module_level=True)
 
 
 # --- Test Data ---
