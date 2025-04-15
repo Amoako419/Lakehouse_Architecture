@@ -37,7 +37,7 @@ print(f"--- DEBUG: sys.path after insert: {sys.path}")
 try:
     print("--- DEBUG: Attempting: from glue_job import ... ---")
     # Ensure the imports match exactly what's needed globally or by process_dataset
-    from glue_job import (
+    from glue_etl import (
         process_dataset,
         validate_data,
         log,
@@ -60,7 +60,7 @@ except ImportError as e:
     import traceback
     traceback.print_exc()
     print("Could not import glue_job.py components due to ImportError.")
-    pytest.skip("Could not import glue_job.py components due to ImportError.", allow_module_level=True)
+    #pytest.skip("Could not import glue_job.py components due to ImportError.", allow_module_level=True)
 except Exception as e: # Catch other potential import-time errors
      print(f"--- ERROR: Caught unexpected error during import: {type(e).__name__}: {e} ---")
      import traceback
