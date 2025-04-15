@@ -1,0 +1,279 @@
+{
+    "Comment": "ETL Pipeline Orchestrated with AWS Step Functions",
+    "StartAt": "RunGlueJob",
+    "States": {
+      "RunGlueJob": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::glue:startJobRun.sync",
+        "Parameters": {
+          "JobName": "Lakehouse"
+        },
+        "Next": "CheckGlueJobStatus",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleGlueJobFailure"
+          }
+        ]
+      },
+      "CheckGlueJobStatus": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.JobRunState",
+            "StringEquals": "SUCCEEDED",
+            "Next": "InitiateArchiveProcess"
+          }
+        ],
+        "Default": "HandleGlueJobFailure"
+      },
+      "InitiateArchiveProcess": {
+        "Type": "Pass",
+        "Parameters": {
+          "sourceBucket": "lakehouse-bucket-125",
+          "sourcePrefix": "land-folder/Data/",
+          "destinationBucket": "lakehouse-bucket-125",
+          "destinationPrefix": "processed_folder/output/",
+          "continuationToken": null,
+          "partialCounts": {
+            "success": 0,
+            "failure": 0,
+            "total": 0
+          }
+        },
+        "Next": "ArchiveProcessedFiles"
+      },
+      "ArchiveProcessedFiles": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:eu-west-1:405894843300:function:Moves3Objects",
+          "Payload": {
+            "sourceBucket.$": "$.sourceBucket",
+            "sourcePrefix.$": "$.sourcePrefix",
+            "destinationBucket.$": "$.destinationBucket",
+            "destinationPrefix.$": "$.destinationPrefix",
+            "continuationToken.$": "$.continuationToken"
+          }
+        },
+        "Next": "CheckArchiveCompletion",
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleArchiveFailure"
+          }
+        ]
+      },
+      "CheckArchiveCompletion": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Payload.isComplete",
+            "BooleanEquals": true,
+            "Next": "RunGlueCrawler"
+          }
+        ],
+        "Default": "ContinueArchiveOperation"
+      },
+      "ContinueArchiveOperation": {
+        "Type": "Pass",
+        "Parameters": {
+          "sourceBucket.$": "$.sourceBucket",
+          "sourcePrefix.$": "$.sourcePrefix",
+          "destinationBucket.$": "$.destinationBucket",
+          "destinationPrefix.$": "$.destinationPrefix",
+          "continuationToken.$": "$.Payload.continuationToken",
+          "partialCounts": {
+            "success.$": "$.Payload.partialCounts.success",
+            "failure.$": "$.Payload.partialCounts.failure",
+            "total.$": "$.Payload.partialCounts.total"
+          }
+        },
+        "Next": "ArchiveProcessedFiles"
+      },
+      "RunGlueCrawler": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+        "Parameters": {
+          "Name": "delta-crawler"
+        },
+        "Next": "WaitForCrawlerToFinish",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleCrawlerFailure"
+          }
+        ]
+      },
+      "WaitForCrawlerToFinish": {
+        "Type": "Wait",
+        "Seconds": 180,
+        "Next": "CheckCrawlerStatus"
+      },
+      "CheckCrawlerStatus": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+        "Parameters": {
+          "Name": "delta-crawler"
+        },
+        "Next": "Parallel Athena Queries",
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "CrawlerRunningException"
+            ],
+            "IntervalSeconds": 30,
+            "MaxAttempts": 5,
+            "BackoffRate": 2
+          }
+        ],
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleCrawlerFailure"
+          }
+        ]
+      },
+      "Parallel Athena Queries": {
+        "Type": "Parallel",
+        "Branches": [
+          {
+            "StartAt": "Run Athena Query 1",
+            "States": {
+              "Run Athena Query 1": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT * from clean_orders limit 5;",
+                  "QueryExecutionContext": {
+                    "Database": "delta-lakehouse"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://lakehouse-bucket-125/athena-query-results/results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          },
+          {
+            "StartAt": "Run Athena Query 2",
+            "States": {
+              "Run Athena Query 2": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT * from clean_orders_items limit 5;",
+                  "QueryExecutionContext": {
+                    "Database": "delta-lakehouse"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://lakehouse-bucket-125/athena-query-results/results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          },
+          {
+            "StartAt": "Run Athena Query 3",
+            "States": {
+              "Run Athena Query 3": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::athena:startQueryExecution.sync",
+                "Parameters": {
+                  "QueryString": "SELECT * from clean_products limit 5;",
+                  "QueryExecutionContext": {
+                    "Database": "delta-lakehouse"
+                  },
+                  "ResultConfiguration": {
+                    "OutputLocation": "s3://lakehouse-bucket-125/athena-query-results/results/"
+                  }
+                },
+                "End": true
+              }
+            }
+          }
+        ],
+        "Next": "HandleValidationSuccess",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "HandleValidationFailure"
+          }
+        ]
+      },
+      "HandleValidationSuccess": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "Delta Lake ETL Pipeline Run Succeed ",
+          "Subject": "Delta Lake Run Succeed"
+        },
+        "End": true
+      },
+      "HandleGlueJobFailure": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "Glue Job Failed: $.Cause",
+          "Subject": "ETL Job Failure Alert"
+        },
+        "End": true
+      },
+      "HandleArchiveFailure": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "Failed to Archive Processed Files",
+          "Subject": "Archive Failure Alert"
+        },
+        "End": true
+      },
+      "HandleCrawlerFailure": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "Glue Crawler Failed ",
+          "Subject": "Crawler Failure Alert"
+        },
+        "Next": "HandleValidationFailure"
+      },
+      "HandleValidationFailure": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::sns:publish",
+        "Parameters": {
+          "TopicArn": "arn:aws:sns:eu-west-1:405894843300:etl",
+          "Message": "Athena Query Validation Failed",
+          "Subject": "Validation Failure Alert"
+        },
+        "End": true
+      }
+    }
+  }
