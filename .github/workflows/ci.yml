@@ -76,13 +76,14 @@ jobs:
         env:
           # Get bucket/key from secrets or hardcode if static (not recommended)
           GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
-          GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }} # e.g., lakehouse_scripts/glue_job.py
+          GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }} 
 
       - name: Update AWS Glue Job
         run: |
           aws glue update-job \
-            --job-name "${{ secrets.GLUE_JOB_NAME }}" \
-            --job-update "{\"ScriptLocation\": {\"S3Path\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"}}"
+          --job-name "${{ secrets.GLUE_JOB_NAME }}" \
+          --job-update "{\"Command\": {\"Name\": \"glueetl\", \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"}}"
+
         env:
            GLUE_JOB_NAME: ${{ secrets.GLUE_JOB_NAME }} # Your Glue Job Name from secrets
            GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
