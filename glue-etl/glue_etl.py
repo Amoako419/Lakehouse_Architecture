@@ -40,6 +40,7 @@ spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
 spark.conf.set("spark.sql.cbo.enabled", "true")
 spark.conf.set("spark.sql.statistics.histogram.enabled", "true")
 
+
 # Initialize Job
 job = Job(glueContext)
 
@@ -419,7 +420,7 @@ try:
     
     # Read products first as it's referenced by order_items
     log("Reading products data")
-    products_path = f"{s3_bucket_path}/product.csv"
+    products_path = f"{s3_bucket_path}/products.csv"
     products_raw = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(products_path)
     products_data = process_dataset(products_raw, products_schema, "products", products_output)
     
@@ -429,7 +430,7 @@ try:
     
     # Read orders next as it's referenced by order_items
     log("Reading orders data")
-    orders_path = f"{s3_bucket_path}/orders/"
+    orders_path = f"{s3_bucket_path}/orders/*.csv"
     orders_raw = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(orders_path)
     orders_data = process_dataset(orders_raw, orders_schema, "orders", orders_output)
     
@@ -439,7 +440,7 @@ try:
     
     # Read order_items last and validate against products and orders
     log("Reading order_items data")
-    order_items_path = f"{s3_bucket_path}/order_items/"
+    order_items_path = f"{s3_bucket_path}/order_items/*.csv"
     order_items_raw = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(order_items_path)
     
     # Create reference data dictionary for validation

@@ -14,4 +14,5 @@ create an s3 bucket for the project
 move data into the s3 bucket
 `aws s3 cp ./Data/ s3://lakehouse-bucket-125/land-folder/Data/ --recursive`
 
-
+set timeout and performance on lambda 
+`aws lambda update-function-configuration --function-name lakehouse-lambda --timeout 900 --memory-size 10240`
