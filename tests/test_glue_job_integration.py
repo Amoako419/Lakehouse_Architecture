@@ -11,9 +11,8 @@ print(f"--- DEBUG: __file__ is: {__file__}")
 
 # Calculate and print the expected path to the 'src' directory
 test_dir = os.path.dirname(__file__)
-project_root_guess = os.path.abspath(os.path.join(test_dir, '..'))
-src_path = os.path.join(project_root_guess, 'src')
-print(f"--- DEBUG: Calculated project_root_guess: {project_root_guess}")
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../src'))
+sys.path.insert(0, src_path)
 print(f"--- DEBUG: Calculated src_path: {src_path}")
 
 # Check if src_path exists and list contents
