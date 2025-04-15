@@ -1,3 +1,4 @@
 architecture.drawio
-integration
+.vscode
+.pytest_cache
 test_env
