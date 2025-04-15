@@ -86,15 +86,18 @@ jobs:
             \"Role\": \"${GLUE_JOB_ROLE}\",
             \"Command\": {
               \"Name\": \"glueetl\",
-                \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"
-            },
-          }"
+              \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"
+           }
+           }"
+
 
 
         env:
            GLUE_JOB_NAME: ${{ secrets.GLUE_JOB_NAME }} # Your Glue Job Name from secrets
            GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
            GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }}
+           GLUE_JOB_ROLE: ${{ secrets.GLUE_JOB_ROLE }}
+
 
       - name: Deployment Summary
         run: |
