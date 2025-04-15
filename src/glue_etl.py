@@ -15,7 +15,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 # Global Scope: Definitions available for import
 # ==============================================================================
 
-# Configure logging (Keep global)
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO) # Default, can be overridden by job args later
 

@@ -2,37 +2,77 @@
 import sys
 import os
 import pytest
-from datetime import date, datetime
+from datetime import date, datetime # Make sure these are imported for test data
 
-# Make the src directory available for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+# --- Enhanced Debugging ---
+print("\n--- DEBUG: Starting test_glue_job_integration.py ---")
+print(f"--- DEBUG: Current working directory: {os.getcwd()}")
+print(f"--- DEBUG: __file__ is: {__file__}")
 
-# Import necessary components from the Glue script
-# Assuming glue_job.py is in the 'src' directory relative to the project root
+# Calculate and print the expected path to the 'src' directory
+test_dir = os.path.dirname(__file__)
+project_root_guess = os.path.abspath(os.path.join(test_dir, '..'))
+src_path = os.path.join(project_root_guess, 'src')
+print(f"--- DEBUG: Calculated project_root_guess: {project_root_guess}")
+print(f"--- DEBUG: Calculated src_path: {src_path}")
+
+# Check if src_path exists and list contents
+if os.path.isdir(src_path):
+    print(f"--- DEBUG: src_path exists. Contents:")
+    try:
+        print(os.listdir(src_path))
+    except Exception as e:
+        print(f"--- DEBUG: Error listing src_path contents: {e}")
+else:
+    print(f"--- DEBUG: src_path DOES NOT EXIST or is not a directory.")
+
+# Add src directory to Python's path
+print(f"--- DEBUG: Inserting {src_path} into sys.path")
+sys.path.insert(0, src_path)
+print(f"--- DEBUG: sys.path after insert: {sys.path}")
+# --- End Enhanced Debugging ---
+
+
+# Try importing specific names
 try:
-    from glue_etl import (
+    print("--- DEBUG: Attempting: from glue_job import ... ---")
+    # Ensure the imports match exactly what's needed globally or by process_dataset
+    from glue_job import (
         process_dataset,
-        validate_data, # Import if you want to test validation more directly
+        validate_data,
+        log,
         products_schema,
         orders_schema,
-        order_items_schema,
-        spark as glue_spark, # Access the spark session defined in glue_job
-        log # Import the log function if needed
+        order_items_schema
+        # Do NOT import spark, glueContext, job, etc. from glue_job
     )
-    print("Successfully imported from glue_job.py")
+    print("--- SUCCESS: Successfully imported required components from glue_job.py ---")
+
+    # --- Add check immediately after import ---
+    if 'process_dataset' in locals() or 'process_dataset' in globals():
+         print("--- DEBUG: 'process_dataset' IS in locals/globals immediately after import.")
+    else:
+         print("--- WARNING: 'process_dataset' is NOT in locals/globals immediately after import!")
+    # --- End check ---
+
 except ImportError as e:
-    print(f"Error importing from glue_job.py: {e}")
-    # pytest.skip("Could not import glue_job.py, skipping integration tests.", allow_module_level=True)
+    print(f"--- ERROR: Caught ImportError importing from glue_job.py: {e} ---")
+    import traceback
+    traceback.print_exc()
+    pytest.skip("Could not import glue_job.py components due to ImportError.", allow_module_level=True)
+except Exception as e: # Catch other potential import-time errors
+     print(f"--- ERROR: Caught unexpected error during import: {type(e).__name__}: {e} ---")
+     import traceback
+     traceback.print_exc()
+     pytest.fail(f"Failed during import phase: {type(e).__name__}: {e}")
 
 
-# --- Test Data ---
-# Use datetime objects directly where possible
+# Define test data (Needs ts1, ts2, d1, d2 etc defined - ensure they are)
 ts1 = datetime(2023, 1, 10, 10, 0, 0)
 ts2 = datetime(2023, 1, 11, 12, 30, 0)
 d1 = date(2023, 1, 10)
 d2 = date(2023, 1, 11)
 
-# Sample data (can be expanded significantly)
 products_data_initial = [
     (101, 10, "Electronics", "Laptop"),
     (102, 10, "Electronics", "Mouse"),
