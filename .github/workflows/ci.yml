@@ -81,8 +81,15 @@ jobs:
       - name: Update AWS Glue Job
         run: |
           aws glue update-job \
-          --job-name "${{ secrets.GLUE_JOB_NAME }}" \
-          --job-update "{\"Command\": {\"Name\": \"glueetl\", \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"}}"
+            --job-name "${{ secrets.GLUE_JOB_NAME }}" \
+            --job-update "{
+            \"Role\": \"${GLUE_JOB_ROLE}\",
+            \"Command\": {
+              \"Name\": \"glueetl\",
+                \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"
+            },
+          }"
+
 
         env:
            GLUE_JOB_NAME: ${{ secrets.GLUE_JOB_NAME }} # Your Glue Job Name from secrets
