@@ -1,5 +1,6 @@
 import pytest
 import os
+import sys
 import tempfile
 import shutil
 from unittest.mock import patch, MagicMock
@@ -18,7 +19,7 @@ sys.modules['delta.tables'] = MagicMock()
 
 # Path to your ETL script
 # Import only the schemas and functions for testing to avoid initialization code
-from etl_script import (
+from glue_etl import (
     order_items_schema,
     orders_schema,
     products_schema,
