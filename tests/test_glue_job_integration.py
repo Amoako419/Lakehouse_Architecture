@@ -59,6 +59,7 @@ except ImportError as e:
     print(f"--- ERROR: Caught ImportError importing from glue_job.py: {e} ---")
     import traceback
     traceback.print_exc()
+    print("Could not import glue_job.py components due to ImportError.")
     pytest.skip("Could not import glue_job.py components due to ImportError.", allow_module_level=True)
 except Exception as e: # Catch other potential import-time errors
      print(f"--- ERROR: Caught unexpected error during import: {type(e).__name__}: {e} ---")
