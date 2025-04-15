@@ -130,40 +130,38 @@ def validate_data(df, schema_name, reference_data=None):
         if reference_data and "orders" in reference_data and "order_id" in reference_data["orders"].columns:
             log("Checking order_id referential integrity using anti-join")
             ref_orders = reference_data["orders"].select("order_id").distinct()
-            # Find ids of rows in validated_df that DO NOT have a matching order_id in ref_orders
             invalid_order_ids_df = validated_df.alias("oi") \
                 .join(ref_orders.alias("o"), col("oi.order_id") == col("o.order_id"), "left_anti") \
                 .select(col("oi.id").alias("invalid_id")).distinct()
 
-            # Join back to the main df and add error flag where id matches an invalid one
-            # Use a different alias for the main df in this step
+            # Join back and update the error list. Reassign directly to validated_df.
+            # Refer to the column directly without the alias prefix inside array_union.
             validated_df = validated_df.alias("main_df") \
                 .join(invalid_order_ids_df.alias("inv"), col("main_df.id") == col("inv.invalid_id"), "left_outer") \
-                .withColumn("validation_errors_list", # Update the *original* column
+                .withColumn("validation_errors_list",
                     when(col("inv.invalid_id").isNotNull(),
-                         array_union(col("main_df.validation_errors_list"), array(lit("Invalid order_id reference"))))
-                    .otherwise(col("main_df.validation_errors_list"))
-                ).select("main_df.*") # Select columns from the original alias to preserve structure
+                         array_union(col("validation_errors_list"), array(lit("Invalid order_id reference")))) # Use direct column name
+                    .otherwise(col("validation_errors_list")) # Use direct column name
+                ) # *** REMOVED .select("main_df.*") ***
 
         # --- Referential integrity check for product_id ---
-        # Operate on the *result* of the previous check (now back in validated_df)
+        # Operate on the *result* of the previous check (now in validated_df)
         if reference_data and "products" in reference_data and "product_id" in reference_data["products"].columns:
             log("Checking product_id referential integrity using anti-join")
             ref_products = reference_data["products"].select("product_id").distinct()
-            # Find ids of rows in the *current* validated_df that DO NOT have a matching product_id
             invalid_product_ids_df = validated_df.alias("oi") \
                 .join(ref_products.alias("p"), col("oi.product_id") == col("p.product_id"), "left_anti") \
                 .select(col("oi.id").alias("invalid_id")).distinct()
 
-            # Join back again and update the *same* error list column
-            # Use a different alias again
+            # Join back again and update the *same* error list column. Reassign directly.
+            # Refer to the column directly without the alias prefix inside array_union.
             validated_df = validated_df.alias("main_df_2") \
                 .join(invalid_product_ids_df.alias("inv"), col("main_df_2.id") == col("inv.invalid_id"), "left_outer") \
-                .withColumn("validation_errors_list", # Update the column again
+                .withColumn("validation_errors_list",
                     when(col("inv.invalid_id").isNotNull(),
-                         array_union(col("main_df_2.validation_errors_list"), array(lit("Invalid product_id reference"))))
-                    .otherwise(col("main_df_2.validation_errors_list"))
-                ).select("main_df_2.*") # Select columns from the original alias
+                         array_union(col("validation_errors_list"), array(lit("Invalid product_id reference")))) # Use direct column name
+                    .otherwise(col("validation_errors_list")) # Use direct column name
+                ) # *** REMOVED .select("main_df_2.*") ***
 
 
     elif schema_name == "orders":
@@ -179,6 +177,7 @@ def validate_data(df, schema_name, reference_data=None):
         pass # No extra rules
 
     # --- Finalize and Split ---
+    # Convert error list to semicolon-separated string
     validated_df = validated_df.withColumn(
          "validation_errors",
          when(size(col("validation_errors_list")) > 0, concat_ws("; ", col("validation_errors_list")))
