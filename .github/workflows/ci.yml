@@ -66,14 +66,19 @@ jobs:
             pip install --upgrade pip
             pip install awscli
             aws --version
-
+            
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+          
       - name: Upload Glue Script to S3
         run: |
           aws s3 cp src/glue_etl.py s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}
         env:
           GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
           GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }}
-
+      
       - name: Terraform Init
         run: terraform init
         working-directory: terraform/glue-job
