@@ -4,6 +4,8 @@
 
 This project implements a production-grade Lakehouse architecture on AWS designed to process e-commerce transactional data. It ingests raw CSV data from Amazon S3, processes it using AWS Glue with Spark and Delta Lake for reliability and ACID compliance, orchestrates the workflow using AWS Step Functions, and makes the curated data available for analytics via Amazon Athena. The entire process emphasizes high data reliability, schema enforcement, data freshness, and is automated using CI/CD pipelines via GitHub Actions.
 
+---
+
 ## Architecture
 
 The architecture follows a standard Lakehouse pattern with distinct zones in S3:
@@ -13,7 +15,7 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
     * AWS Glue jobs run Spark code.
     * Spark reads raw data, performs cleaning, validation (null checks, referential integrity, deduplication), and type casting.
     * Data is written into Delta Lake tables, ensuring ACID transactions, schema enforcement, and time travel capabilities.
-3.  **Processed Zone / Lakehouse DWH (S3):** Stores the cleaned, deduplicated, and optimized data in Delta Lake format. This zone is structured for efficient querying.
+3.  **Processed Zone (S3):** Stores the cleaned, deduplicated, and optimized data in Delta Lake format. This zone is structured for efficient querying.
 4.  **Metadata Layer (AWS Glue Data Catalog):** Stores metadata (schema, partitions) about the Delta tables, enabling seamless querying by Athena and interoperability with Glue jobs.
 5.  **Query Layer (Amazon Athena):** Provides a serverless SQL interface for analysts to query the processed Delta tables directly from S3.
 6.  **Orchestration (AWS Step Functions):** Manages the end-to-end ETL lifecycle, including job execution, error handling, archiving, and notifications.
@@ -26,10 +28,16 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
 
 *Textual Flow:*
 `Raw CSV Files (S3 Raw Zone)` -> `AWS Glue Job (Spark + Delta Lake)` -> `Delta Tables (S3 Processed Zone)` -> `AWS Glue Data Catalog Update` -> `Amazon Athena Querying`
+
 *Orchestration:* `EventBridge` -> `AWS Step Functions` -> `(Glue, Lambda, Crawler, Athena, SNS)`
+
 *Archiving:* `Raw CSV Files (S3 Raw Zone)` -> `Archive Process (Lambda via Step Functions)` -> `Archived Files (S3 Archive Zone)`
+
 *Notifications:* `SNS` -> `(Success/Failure Alerts)`
+
 *CI/CD:* `GitHub Actions` -> `(Code Quality, Testing, Deployment)`
+
+---
 
 ## Features
 
@@ -59,32 +67,35 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
 * **Notifications:** AWS Simple Notification Service (SNS)
 * **CI/CD:** GitHub Actions
 
+---
+
 ## Data Sources & Schema
 
 The pipeline processes three core datasets provided as CSV files:
 
-1.  **Product Data**
-    * `product_id`: STRING (Primary Identifier)
-    * `department_id`: STRING
-    * `department`: STRING
-    * `product_name`: STRING
-2.  **Orders**
-    * `order_num`: STRING
-    * `order_id`: STRING (Primary Identifier)
-    * `user_id`: STRING
-    * `order_timestamp`: TIMESTAMP
-    * `total_amount`: DOUBLE
-    * `date`: DATE (Potential Partition Key)
-3.  **Order Items**
-    * `id`: STRING (Primary Identifier for the item line)
-    * `order_id`: STRING (Foreign Key to Orders)
-    * `user_id`: STRING
-    * `days_since_prior_order`: INTEGER
-    * `product_id`: STRING (Foreign Key to Product Data)
-    * `add_to_cart_order`: INTEGER
-    * `reordered`: BOOLEAN
-    * `order_timestamp`: TIMESTAMP
-    * `date`: DATE (Potential Partition Key)
+| Dataset | Field | Type | Description |
+|---------|--------|------|-------------|
+| **Product Data** | product_id | STRING | Primary Identifier |
+| | department_id | STRING | |
+| | department | STRING | |
+| | product_name | STRING | |
+| **Orders** | order_num | STRING | |
+| | order_id | STRING | Primary Identifier |
+| | user_id | STRING | |
+| | order_timestamp | TIMESTAMP | |
+| | total_amount | DOUBLE | |
+| | date | DATE | Potential Partition Key |
+| **Order Items** | id | STRING | Primary Identifier for the item line |
+| | order_id | STRING | Foreign Key to Orders |
+| | user_id | STRING | |
+| | days_since_prior_order | INTEGER | |
+| | product_id | STRING | Foreign Key to Product Data |
+| | add_to_cart_order | INTEGER | |
+| | reordered | BOOLEAN | |
+| | order_timestamp | TIMESTAMP | |
+| | date | DATE | Potential Partition Key |
+
+---
 
 ## ETL Pipeline Steps
 
@@ -95,7 +106,7 @@ The pipeline processes three core datasets provided as CSV files:
     * Applies cleaning logic (handling nulls, standardizing formats).
     * Performs validation checks (see Validation Rules below). Logs rejected records.
     * Applies schema and casts data types.
-    * Uses Delta Lake's `MERGE` operation to insert new records and update existing ones (based on primary identifiers) in the target Delta tables located in the S3 processed zone (`lakehouse-dwh`). This handles deduplication.
+    * Uses Delta Lake's `MERGE` operation to insert new records and update existing ones (based on primary identifiers) in the target Delta tables located in the S3 processed zone . This handles deduplication.
     * Writes data partitioned by a suitable key (e.g., `date`) for performance.
 3.  **Archiving (Lambda Function):**
     * Upon successful completion of the Glue job, Step Functions invoke a Lambda function (`Moves3Objects`).
@@ -107,13 +118,18 @@ The pipeline processes three core datasets provided as CSV files:
 5.  **Validation (Athena Queries - Optional):**
     * Step Functions run parallel Athena queries against the newly updated tables (`clean_orders`, `clean_orders_items`, `clean_products`) as a final validation check.
 6.  **Notifications (SNS):**
-    * Step Functions publish messages to an SNS topic (`arn:aws:sns:eu-west-1:405894843300:etl`) indicating success or detailing failures at various stages (Glue Job, Archiving, Crawler, Validation).
+    * Step Functions publish messages to an SNS topic indicating success or detailing failures at various stages (Glue Job, Archiving, Crawler, Validation).
+
+---
 
 ## Orchestration - AWS Step Functions
 
 The ETL workflow is orchestrated by an AWS Step Functions state machine.
 
-**(See `statemachine.json` for the full definition)**
+**(See `stepfunctions/delta-lake.json` for the full definition)**
+<p align="center">
+    <img src="images/delta-lake-steps.svg" alt="The architecture diagram" width="100%" />
+</p>
 
 **Key States & Logic:**
 
@@ -125,7 +141,31 @@ The ETL workflow is orchestrated by an AWS Step Functions state machine.
 * `HandleValidationSuccess`: Publishes a success message to SNS.
 * `HandleGlueJobFailure`, `HandleArchiveFailure`, `HandleCrawlerFailure`, `HandleValidationFailure`: Catch errors from specific steps and publish failure notifications to SNS.
 
-*Note:* The state machine definition includes specific ARNs (Lambda, SNS) and bucket/prefix names. These should ideally be parameterized or managed via infrastructure-as-code for different environments.
+## Step Function Execution
+
+The step function workflow executes each task sequentially, ensuring end-to-end ETL processing. Below is an example of a successful execution:
+
+| Step | Status | Duration |
+|------|--------|----------|
+| RunGlueJob | ✅ Succeeded | 180s |
+| CheckGlueJobStatus | ✅ Succeeded | 5s |
+| InitiateArchiveProcess | ✅ Succeeded | 10s |
+| ArchiveProcessedFiles | ✅ Succeeded | 45s |
+| CheckArchiveCompletion | ✅ Succeeded | 15s |
+| RunGlueCrawler | ✅ Succeeded | 60s |
+| WaitForCrawlerToFinish | ✅ Succeeded | 120s |
+| CheckCrawlerStatus | ✅ Succeeded | 5s |
+| Parallel Athena Queries | ✅ Succeeded | 60s |
+| HandleValidationSuccess | ✅ Succeeded | 2s |
+
+Total execution time: ~15 minutes
+
+The workflow maintains idempotency and ensures all resources are properly cleaned up, even in failure scenarios.
+<p align="center">
+    <img src="images/executed (2).svg" alt="The architecture diagram" width="100%" />
+</p>
+
+---
 
 ## Validation Rules
 
@@ -137,15 +177,17 @@ The ETL process incorporates the following validation rules:
 * **Deduplication:** Handled via `MERGE` operations based on primary keys when writing to Delta tables.
 * **Logging:** Records failing validation are logged (e.g., written to a separate 'rejected' S3 path or logged via CloudWatch).
 
+--- 
+
 ## CI/CD - GitHub Actions
 
 Automation is implemented using GitHub Actions, triggered on pushes or merges to the `main` branch. Expected workflows include:
 
 * **Code Quality Checks:** Linting and static analysis of Spark (Python/Scala) code.
 * **Unit Tests:** Testing individual functions or components of the Spark ETL logic.
-* **Integration Tests:** Testing the interaction between different parts of the Spark code, possibly using local Spark sessions or small sample data.
-* **(Optional) Infrastructure Deployment:** Deploying or updating the Step Functions state machine definition (JSON/YAML) to AWS.
-* **(Optional) Glue Job Deployment:** Packaging and deploying the Spark script to AWS Glue.
+* **Glue Job Deployment:** Packaging and deploying the Spark script to AWS Glue.
+
+---
 
 ## Setup and Deployment
 
@@ -167,26 +209,21 @@ Automation is implemented using GitHub Actions, triggered on pushes or merges to
     * Add AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`) as secrets in the GitHub repository settings.
     * Define workflow files (`.github/workflows/`) for CI/CD steps.
 4.  **Code:**
-    * Place Spark ETL scripts in the repository.
-    * Place the Step Functions JSON definition in the repository.
+    * Spark ETL scripts : `src/glue_etl.py`.
+    * Step Functions JSON : `stepfunctions/delta-lake.json`
+    * Lambda function code : `stepfunctions/lambda_function.py` 
+
+---
 
 ## How to Run
-
 1.  **Upload Data:** Place raw CSV files (`products.csv`, `orders.csv`, `order_items.csv`) into the configured S3 raw zone path (e.g., `s3://[Your-Bucket-Name]/land-folder/Data/`).
-2.  **Trigger Step Function:** Manually start an execution of the AWS Step Functions state machine via the AWS Console or AWS CLI.
-    * *(Future Enhancement: Configure an S3 Event Notification on the raw zone prefix to automatically trigger the Step Function via EventBridge or Lambda).*
+2.  **Configure EventBridge Rule:** 
+    * Create an EventBridge rule that watches for `PutObject` events in the S3 raw zone
+    * Set the target as the Step Functions state machine
+    * The rule will automatically trigger the Step Function when new files arrive
 3.  **Monitor Execution:** Observe the execution progress in the AWS Step Functions console.
 4.  **Check Notifications:** Monitor the subscribed SNS endpoint for success or failure messages.
 5.  **Query Data:** Once the pipeline succeeds, query the `clean_products`, `clean_orders`, and `clean_orders_items` tables in the `delta-lakehouse` database using Amazon Athena.
 
-## Future Improvements
-
-* Implement S3 event triggers for fully automated pipeline initiation.
-* Parameterize resource names (buckets, ARNs, job names) using Step Functions input or IaC variables.
-* Implement more sophisticated data quality checks and reporting (e.g., using Deequ or Great Expectations).
-* Enhance monitoring with detailed CloudWatch Metrics and Dashboards.
-* Implement schema evolution strategies within Delta Lake.
-* Add more comprehensive integration tests covering the interaction with AWS services.
-* Optimize Spark job performance (tuning configurations, shuffle partitions, etc.).
-* Refine partitioning strategy based on common query patterns.
-* Consider data temperature management (moving older data to cheaper S3 storage classes).
+---
+## Add images of acid complaint sql code in athena
