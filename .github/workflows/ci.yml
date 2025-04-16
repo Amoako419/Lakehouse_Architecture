@@ -76,7 +76,7 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: ./terraform
+        working-directory: terraform/glue-job
 
       - name: Terraform Apply
         run: |
@@ -96,7 +96,7 @@ jobs:
             -var="log_level=${{ secrets.LOG_LEVEL }}" \
             -var="temp_dir=${{ secrets.TEMP_DIR }}" \
             -var="spark_event_logs_path=${{ secrets.SPARK_EVENT_LOGS_PATH }}"
-        working-directory: ./terraform
+        working-directory: terraform/glue-job
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
