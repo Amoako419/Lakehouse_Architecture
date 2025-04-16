@@ -337,3 +337,60 @@ This query demonstrates ACID compliance through:
 4. **Durability**: Successfully inserted data is persisted in the Delta table
 
 The query uses explicit column naming and type casting for data integrity.
+
+
+---
+## SQL Query to Validate Data in clean_products Table
+<p align="center">
+    <img src="images/query-products.png" alt="The architecture diagram" width="100%" />
+</p>
+
+```sql
+INSERT INTO clean_products (
+    product_id,
+    department_id,
+    product_name,
+    department
+)
+SELECT t.*
+FROM (
+    VALUES 
+        (1, 14, 'Product_14_Job', 'Home'),
+        (2, 97, 'Product_97_Charge', 'Home'),
+        (3, 229, 'Product_229_Listen', 'Home'),
+        (4, 245, 'Product_245_Strategy', 'Home'),
+        (5, 254, 'Product_254_Information', 'Home')
+) AS t(
+    product_id,
+    department_id,
+    product_name,
+    department
+)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM clean_products p
+    WHERE p.product_id = t.product_id
+);
+```
+
+
+#### **Atomicity**
+- The `INSERT` operation is atomic - it will either completely succeed for all rows or fail entirely.
+- If any error occurs during insertion (e.g., duplicate key violation), the entire transaction rolls back.
+- No partial updates are possible due to the atomic nature of the operation.
+
+#### **Consistency**
+- The `WHERE NOT EXISTS` subquery ensures data consistency by preventing duplicate `product_id` entries.
+- The schema constraints (if any) will be enforced for all inserted rows.
+- The `VALUES` clause ensures data type consistency for each column.
+
+#### **Isolation**
+- The query uses a subquery with `NOT EXISTS`, which provides isolation from concurrent transactions.
+- If another transaction tries to insert the same `product_id`, the database's isolation level will handle conflicts.
+- Lock mechanisms prevent dirty reads/writes during the insertion process.
+
+#### **Durability**
+- Once the transaction commits, the data is permanently stored in the `clean_products` table.
+- Database recovery mechanisms ensure the changes survive system failures.
+- Transaction logs maintain a record of the operations, ensuring durability.
+
