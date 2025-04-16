@@ -2,7 +2,7 @@ provider "aws" {
   region = var.aws_region
 }
 
-resource "aws_glue_job" "lakehouse_job" {
+resource "aws_glue_job" "delta_lakehouse_job" {
   name     = var.job_name
   role_arn = var.glue_role_arn
 
