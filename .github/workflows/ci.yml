@@ -76,7 +76,7 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: terraform/glue-job/
+        working-directory: terraform/glue-job
 
       - name: Terraform Apply
         run: |
