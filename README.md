@@ -46,7 +46,7 @@ The architecture follows a standard Lakehouse pattern with distinct zones in S3:
 * **Deduplication:** Ensures records are unique within the Delta tables using merge/upsert logic.
 * **Schema Enforcement:** Delta Lake enforces schema on write, preventing data corruption.
 * **ACID Transactions:** Guarantees atomicity, consistency, isolation, and durability for data operations.
-* **Data Partitioning:** Delta tables are partitioned (e.g., by date) for improved query performance in Athena.
+* **Data Partitioning:** Delta tables are partitioned (by date) for improved query performance in Athena.
 * **Metadata Management:** Glue Data Catalog is kept in sync with the Delta tables.
 * **Serverless Querying:** Downstream analytics via Amazon Athena using standard SQL.
 * **Workflow Orchestration:** AWS Step Functions manage the ETL pipeline state, retries, error handling, and dependencies.
@@ -110,15 +110,15 @@ The pipeline processes three core datasets provided as CSV files:
     * Performs validation checks (see Validation Rules below). Logs rejected records.
     * Applies schema and casts data types.
     * Uses Delta Lake's `MERGE` operation to insert new records and update existing ones (based on primary identifiers) in the target Delta tables located in the S3 processed zone . This handles deduplication.
-    * Writes data partitioned by a suitable key (e.g., `date`) for performance.
+    * Writes data partitioned by a suitable key (`by date`) for performance.
 3.  **Archiving (Lambda Function):**
     * Upon successful completion of the Glue job, Step Functions invoke a Lambda function (`Moves3Objects`).
-    * This function moves the processed source CSV files from the raw zone (`land-folder/Data/`) to an archive prefix (`processed_folder/output/` - *Note: This seems like an unusual naming convention for an archive, consider renaming to `/archived/`*).
+    * This function moves the processed source CSV files from the raw zone (`land-folder/Data/`) to an archive prefix (`processed_folder/output/`).
     * The Step Function handles potential pagination if many files need archiving.
 4.  **Metadata Update (Glue Crawler):**
     * After successful archiving, Step Functions trigger a Glue Crawler (`delta-crawler`).
-    * The crawler scans the Delta tables in the processed zone (`lakehouse-dwh`) and updates the corresponding tables in the Glue Data Catalog (`delta-lakehouse` database). This ensures Athena has the latest schema and partition information.
-5.  **Validation (Athena Queries - Optional):**
+    * The crawler scans the Delta tables in the processed zone and updates the corresponding tables in the Glue Data Catalog (`delta-lakehouse` database). This ensures Athena has the latest schema and partition information.
+5.  **Validation (Athena Queries):**
     * Step Functions run parallel Athena queries against the newly updated tables (`clean_orders`, `clean_orders_items`, `clean_products`) as a final validation check.
 6.  **Notifications (SNS):**
     * Step Functions publish messages to an SNS topic indicating success or detailing failures at various stages (Glue Job, Archiving, Crawler, Validation).
@@ -178,7 +178,7 @@ The ETL process incorporates the following validation rules:
 * **Valid Timestamps:** Check if timestamp fields conform to expected formats.
 * **Referential Integrity (Conceptual):** While not strictly enforced by Delta Lake constraints in this setup, logic can be added in Spark to check if `product_id` in `order_items` exists in `products`, and `order_id` in `order_items` exists in `orders`. Rows failing these checks might be flagged or moved to a rejected records location.
 * **Deduplication:** Handled via `MERGE` operations based on primary keys when writing to Delta tables.
-* **Logging:** Records failing validation are logged (e.g., written to a separate 'rejected' S3 path or logged via CloudWatch).
+* **Logging:** Records failing validation are logged (written to a separate 'rejected' S3 path ).
 
 --- 
 
@@ -216,7 +216,7 @@ The workflow executes these key steps:
     * AWS Account
     * Configured AWS CLI/SDK with appropriate permissions.
     * GitHub Account/Repository.
-    * (Recommended) Infrastructure as Code tool like AWS CDK, CloudFormation, or Terraform.
+    * Infrastructure as Code tool like AWS CDK, CloudFormation, or Terraform.
 2.  **Deploy AWS Resources:**
     * Create S3 buckets: raw zone, processed zone, archive zone, Athena results location.
     * Create the Glue Job (`Lakehouse`) with the Spark ETL script.
@@ -249,12 +249,13 @@ The workflow executes these key steps:
 ---
 
 ## ACID-Compliant SQL Query Example
+Below is an example of an ACID-compliant INSERT operation using Athena against our Delta Lake table:
+
 <p align="center">
     <img src="images/Athena-queries-acid-complaint.png" alt="The architecture diagram" width="100%" />
 </p>
 
-
-Below is an example of an ACID-compliant INSERT operation using Athena against our Delta Lake table:
+### SQL Query to Insert New Records into clean_orders Table
 
 ```sql
 INSERT INTO clean_orders
@@ -284,3 +285,55 @@ This query ensures ACID compliance through:
 4. **Durability**: Successfully inserted data is permanently stored in the Delta table
 
 The query validates data integrity by checking for existing records before insertion, maintaining transaction safety.
+
+### SQL Query to Insert New Records into clean_orders_items Table
+
+<p align="center">
+    <img src="images/ACID-query.png" alt="The architecture diagram" width="100%" />
+</p>
+
+```sql
+INSERT INTO clean_orders_items (
+    id,
+    order_id,
+    user_id,
+    days_since_prior_order,
+    product_id,
+    add_to_cart_order,
+    reordered,
+    order_timestamp,
+    date
+)
+SELECT t.*
+FROM (
+    VALUES 
+        (1, 2771, 10500, 1726, 17, 991, 0, CAST('2025-04-02 10:25:00.000' AS TIMESTAMP), CAST(DATE '2025-04-02' AS VARCHAR)),
+        (2, 2772, 10500, 1726, 29, 490, 1, CAST('2025-04-02 10:25:00.000' AS TIMESTAMP), CAST(DATE '2025-04-02' AS VARCHAR)),
+        (3, 2774, 10500, 1726, 29, 123, 0, CAST('2025-04-02 10:25:00.000' AS TIMESTAMP), CAST(DATE '2025-04-02' AS VARCHAR))
+) AS t(
+    id,
+    order_id,
+    user_id,
+    days_since_prior_order,
+    product_id,
+    add_to_cart_order,
+    reordered,
+    order_timestamp,
+    date
+)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM clean_orders_items co
+    WHERE co.id = t.id
+      AND co.order_id = t.order_id
+);
+```
+
+This query demonstrates ACID compliance through:
+
+1. **Atomicity**: Either all records are inserted or none
+2. **Consistency**: The WHERE NOT EXISTS clause prevents duplicate entries by checking id and order_id
+3. **Isolation**: Delta Lake handles concurrent transactions without interference
+4. **Durability**: Successfully inserted data is persisted in the Delta table
+
+The query uses explicit column naming and type casting for data integrity.
