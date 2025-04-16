@@ -1,4 +1,3 @@
-# src/etl_utils.py
 """
 Utility functions and schema definitions for the E-commerce Lakehouse ETL process.
 This module contains reusable logic independent of the AWS Glue runtime environment
@@ -31,7 +30,6 @@ def log(message, level="INFO"):
 
 # --- Schemas ---
 log("Defining data schemas in etl_utils")
-# ... (Schemas remain unchanged) ...
 order_items_schema = StructType([
     StructField("id", IntegerType(), nullable=False),
     StructField("order_id", IntegerType(), nullable=False),
@@ -61,7 +59,6 @@ products_schema = StructType([
 
 # --- Helper Functions ---
 def timed_execution(func):
-    # ... (decorator unchanged) ...
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
@@ -71,7 +68,6 @@ def timed_execution(func):
     return wrapper
 
 def log_dataframe_info(df, name):
-    # ... (function unchanged) ...
     try:
         if df.isEmpty():
              log(f"DataFrame {name}: 0 rows")
@@ -126,7 +122,6 @@ def validate_data(df, schema_name, reference_data=None):
 
     # --- Specific Rules ---
     if schema_name == "order_items":
-        # --- Referential integrity check for order_id ---
         if reference_data and "orders" in reference_data and "order_id" in reference_data["orders"].columns:
             log("Checking order_id referential integrity using anti-join")
             ref_orders = reference_data["orders"].select("order_id").distinct()
@@ -142,7 +137,7 @@ def validate_data(df, schema_name, reference_data=None):
                     when(col("inv.invalid_id").isNotNull(),
                          array_union(col("validation_errors_list"), array(lit("Invalid order_id reference")))) # Use direct column name
                     .otherwise(col("validation_errors_list")) # Use direct column name
-                ) # *** REMOVED .select("main_df.*") ***
+                ) 
 
         # --- Referential integrity check for product_id ---
         # Operate on the *result* of the previous check (now in validated_df)
@@ -176,7 +171,7 @@ def validate_data(df, schema_name, reference_data=None):
     elif schema_name == "products":
         pass # No extra rules
 
-    # --- Finalize and Split ---
+
     # Convert error list to semicolon-separated string
     validated_df = validated_df.withColumn(
          "validation_errors",
@@ -209,8 +204,6 @@ def validate_data(df, schema_name, reference_data=None):
 # --- process_dataset function (remains unchanged from etl_utils_v3) ---
 @timed_execution
 def process_dataset(raw_df, schema, schema_name, job_name, spark, reference_data=None):
-    # ... (implementation as provided in etl_utils_v3) ...
-    # It will call the updated validate_data function above.
     try:
         log(f"Processing {schema_name} dataset for transformation (Job: {job_name})")
         if raw_df.isEmpty():
@@ -227,7 +220,6 @@ def process_dataset(raw_df, schema, schema_name, job_name, spark, reference_data
         log(f"Converting {schema_name} data types to match schema")
         typed_df = raw_df_cached
         for field in schema.fields:
-             # ... (type casting logic) ...
             if field.name in typed_df.columns:
                  if field.name == "order_timestamp":
                      try:
@@ -296,4 +288,4 @@ def process_dataset(raw_df, schema, schema_name, job_name, spark, reference_data
         if 'valid_data_cached' in locals() and valid_data_cached.is_cached: valid_data_cached.unpersist()
         raise e
 
-# --- End of etl_utils.py ---
+
