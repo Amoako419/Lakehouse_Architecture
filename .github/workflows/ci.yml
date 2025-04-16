@@ -84,7 +84,7 @@ jobs:
         working-directory: terraform/glue-job
 
       - name: Terraform Import Existing Glue Job
-        run: terraform import aws_glue_job ${{ secrets.GLUE_JOB_NAME }}
+        run: terraform import aws_glue_job.lakehouse_job ${{ secrets.GLUE_JOB_NAME }}
         working-directory: terraform/glue-job
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
