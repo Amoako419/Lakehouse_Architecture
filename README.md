@@ -99,7 +99,10 @@ The pipeline processes three core datasets provided as CSV files:
 
 ## ETL Pipeline Steps
 
-1.  **Trigger:** The process is initiated (e.g., manually, scheduled, or via an S3 event trigger - *Note: The provided Step Function simulates the trigger*).
+1.  **Trigger:**
+    * An EventBridge rule monitors the S3 raw zone (`land-folder/Data/`) for `PutObject` events
+    * When new CSV files are uploaded, the rule automatically triggers the Step Functions state machine
+    * The rule pattern specifically watches for `.csv` file uploads to ensure only relevant files trigger the pipeline
 2.  **Data Processing (Glue Job):**
     * The main Glue job (`Lakehouse`) is triggered by Step Functions.
     * It reads the corresponding raw CSV files (Products, Orders, Order Items) from the S3 raw zone.
@@ -181,11 +184,29 @@ The ETL process incorporates the following validation rules:
 
 ## CI/CD - GitHub Actions
 
-Automation is implemented using GitHub Actions, triggered on pushes or merges to the `main` branch. Expected workflows include:
+The deployment workflow is automated using GitHub Actions and triggers on pushes to the `main` branch. It specifically monitors changes in the `src` and `terraform` directories.
 
-* **Code Quality Checks:** Linting and static analysis of Spark (Python/Scala) code.
-* **Unit Tests:** Testing individual functions or components of the Spark ETL logic.
-* **Glue Job Deployment:** Packaging and deploying the Spark script to AWS Glue.
+The workflow executes these key steps:
+
+1. **Code Quality Check:**
+    - Runs Python linting on source files
+    - Ensures code meets style and quality standards
+
+2. **Testing:**
+    - Executes unit tests using pytest
+    - Validates ETL logic and infrastructure code
+
+3. **AWS Authentication:**
+    - Configures AWS credentials for deployment
+    - Uses repository secrets for secure access
+
+4. **Infrastructure Deployment:**
+    - Uses Terraform to provision AWS resources
+    - Applies infrastructure changes automatically
+
+5. **ETL Script Upload:**
+    - Copies the Glue ETL script to designated S3 bucket
+    - Makes the script available for Glue jobs
 
 ---
 
