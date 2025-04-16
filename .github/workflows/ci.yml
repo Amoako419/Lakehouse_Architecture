@@ -42,7 +42,6 @@ jobs:
   deploy:
     name: Deploy Glue Script to AWS
     needs: test # Run only if tests pass
-    # Run only on direct pushes to main, not on PRs
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -56,9 +55,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4 # Use latest version
         with:
-          # role-to-assume: arn:aws:iam::ACCOUNT-ID-WITHOUT-HYPHENS:role/YOUR_GITHUB_ACTIONS_DEPLOY_ROLE # Use OIDC if possible
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # Fallback if not using OIDC
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # Fallback if not using OIDC
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # Use AWS secrets
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # Use AWS secrets
           aws-region: ${{ secrets.AWS_REGION }} # e.g., eu-west-1
 
       - name: Install AWS CLI
@@ -68,38 +66,43 @@ jobs:
             pip install --upgrade pip
             pip install awscli
             aws --version
-        
 
       - name: Upload Glue Script to S3
         run: |
           aws s3 cp src/glue_etl.py s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}
         env:
-          # Get bucket/key from secrets or hardcode if static (not recommended)
           GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
-          GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }} 
+          GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }}
 
-      - name: Update AWS Glue Job
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      - name: Terraform Apply
         run: |
-          aws glue update-job \
-            --job-name "${{ secrets.GLUE_JOB_NAME }}" \
-            --job-update "{
-            \"Role\": \"${GLUE_JOB_ROLE}\",
-            \"Command\": {
-              \"Name\": \"glueetl\",
-              \"ScriptLocation\": \"s3://${GLUE_SCRIPT_S3_BUCKET}/${GLUE_SCRIPT_S3_KEY}\"
-           }
-           }"
-
-
-
+          terraform apply -auto-approve \
+            -var="aws_region=${{ secrets.AWS_REGION }}" \
+            -var="job_name=${{ secrets.GLUE_JOB_NAME }}" \
+            -var="glue_role_arn=${{ secrets.GLUE_JOB_ROLE }}" \
+            -var="script_location=s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}" \
+            -var="glue_version=${{ secrets.GLUE_VERSION }}" \
+            -var="number_of_workers=${{ secrets.GLUE_NUMBER_OF_WORKERS }}" \
+            -var="worker_type=${{ secrets.GLUE_WORKER_TYPE }}" \
+            -var="products_output_path=${{ secrets.PRODUCTS_OUTPUT_PATH }}" \
+            -var="order_items_output_path=${{ secrets.ORDER_ITEMS_OUTPUT_PATH }}" \
+            -var="orders_output_path=${{ secrets.ORDERS_OUTPUT_PATH }}" \
+            -var="rejected_path=${{ secrets.REJECTED_PATH }}" \
+            -var="s3_bucket_path=${{ secrets.S3_BUCKET_PATH }}" \
+            -var="log_level=${{ secrets.LOG_LEVEL }}" \
+            -var="temp_dir=${{ secrets.TEMP_DIR }}" \
+            -var="spark_event_logs_path=${{ secrets.SPARK_EVENT_LOGS_PATH }}"
+        working-directory: ./terraform
         env:
-           GLUE_JOB_NAME: ${{ secrets.GLUE_JOB_NAME }} # Your Glue Job Name from secrets
-           GLUE_SCRIPT_S3_BUCKET: ${{ secrets.GLUE_SCRIPT_S3_BUCKET }}
-           GLUE_SCRIPT_S3_KEY: ${{ secrets.GLUE_SCRIPT_S3_KEY }}
-           GLUE_JOB_ROLE: ${{ secrets.GLUE_JOB_ROLE }}
-
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
       - name: Deployment Summary
         run: |
-          echo "Successfully deployed script s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}"
+          echo "Successfully deployed Glue job with script from s3://${{ secrets.GLUE_SCRIPT_S3_BUCKET }}/${{ secrets.GLUE_SCRIPT_S3_KEY }}"
           echo "Updated Glue Job: ${{ secrets.GLUE_JOB_NAME }}"
