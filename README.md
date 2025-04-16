@@ -226,4 +226,40 @@ Automation is implemented using GitHub Actions, triggered on pushes or merges to
 5.  **Query Data:** Once the pipeline succeeds, query the `clean_products`, `clean_orders`, and `clean_orders_items` tables in the `delta-lakehouse` database using Amazon Athena.
 
 ---
-## Add images of acid complaint sql code in athena
+
+## ACID-Compliant SQL Query Example
+<p align="center">
+    <img src="images/Athena-queries-acid-complaint.png" alt="The architecture diagram" width="100%" />
+</p>
+
+
+Below is an example of an ACID-compliant INSERT operation using Athena against our Delta Lake table:
+
+```sql
+INSERT INTO clean_orders
+SELECT *
+FROM (
+    SELECT *
+    FROM (
+        VALUES 
+            (1, 57, 10504, CAST('2025-04-02 18:08:00.000' AS timestamp(3)), 400.25, '2025-04-02'),
+            (2, 24, 12523, CAST('2025-04-06 04:17:00.000' AS timestamp(3)), 373.73, '2025-04-06'),
+            (3, 66, 12525, CAST('2025-04-06 13:06:00.000' AS timestamp(3)), 258.10, '2025-04-06')
+    ) AS t(order_num, order_id, user_id, order_timestamp, total_amount, date)
+) AS new_rows
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM clean_orders existing
+    WHERE existing.order_num = new_rows.order_num
+        AND existing.order_id = new_rows.order_id
+);
+```
+
+This query ensures ACID compliance through:
+
+1. **Atomicity**: The INSERT operation either completely succeeds or fails
+2. **Consistency**: The WHERE NOT EXISTS clause prevents duplicate entries
+3. **Isolation**: Delta Lake's versioning ensures concurrent operations don't interfere
+4. **Durability**: Successfully inserted data is permanently stored in the Delta table
+
+The query validates data integrity by checking for existing records before insertion, maintaining transaction safety.
