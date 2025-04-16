@@ -29,7 +29,6 @@ def log(message, level="INFO"):
     else:
         logger.info(f"[{timestamp}] {message}")
 
-# --- Schemas (Keep global for easy import/reference) ---
 log("Defining data schemas")
 order_items_schema = StructType([
     StructField("id", IntegerType(), nullable=False),
@@ -83,8 +82,7 @@ def log_dataframe_info(df, name):
 @timed_execution
 def validate_data(df, schema_name, reference_data=None):
     """
-    Applies validation rules based on the schema name and separates valid from invalid records.
-    Assumes 'log' function is globally available.
+        CI works
     """
     log(f"Validating {schema_name} dataset")
 
