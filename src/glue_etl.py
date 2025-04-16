@@ -81,9 +81,6 @@ def log_dataframe_info(df, name):
 
 @timed_execution
 def validate_data(df, schema_name, reference_data=None):
-    """
-        CI works
-    """
     log(f"Validating {schema_name} dataset")
 
     # Add validation error column
@@ -225,7 +222,7 @@ def process_dataset(raw_df, schema, schema_name, output_path, rejected_path, job
     """
     try:
         log(f"Processing {schema_name} dataset")
-        log_dataframe_info(raw_df, f"{schema_name}_raw") # Assumes log_dataframe_info is global
+        log_dataframe_info(raw_df, f"{schema_name}_raw") 
 
         # Cache raw dataframe if it will be used multiple times
         raw_df_cached = raw_df.cache()

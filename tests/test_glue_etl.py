@@ -1,4 +1,4 @@
-# tests/test_glue_etl_unit.py
+
 """
 Unit tests for individual functions extracted into etl_utils.py.
 Focuses on testing the logic within functions like validate_data in isolation,
@@ -10,15 +10,12 @@ import sys
 import os
 from datetime import date, datetime
 
-# --- Path Setup ---
+
 # Add the 'src' directory to sys.path to allow importing 'etl_utils'
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../src'))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
-# --- End Path Setup ---
 
-# --- Imports ---
-# ---> Import components from the NEW utility module <---
 try:
     from etl_utils import (
         validate_data,
@@ -38,12 +35,10 @@ except Exception as e:
 # Import Spark types
 from pyspark.sql import Row
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, TimestampType, DoubleType, DateType, BooleanType
-# --- End Imports ---
 
 
-# ==============================================================================
-# Unit Tests for validate_data function (Content remains the same as previous version)
-# ==============================================================================
+
+
 
 # --- Products Validation Tests ---
 
@@ -60,7 +55,6 @@ def test_validate_products_valid(spark_session):
 
 
 def test_validate_products_invalid_nulls(spark_session):
-    # ... (test logic unchanged - uses temporary nullable schema for creation) ...
     nullable_products_schema_for_test = StructType([
         StructField("product_id", IntegerType(), nullable=True), # Allow null for test input
         StructField("department_id", IntegerType(), nullable=True),
@@ -76,13 +70,11 @@ def test_validate_products_invalid_nulls(spark_session):
     valid_records, invalid_records = validate_data(input_df, "products", reference_data=None) # Validate against original schema
     assert valid_records.count() == 1
     assert invalid_records.count() == 2
-    # ... (optional error content checks) ...
 
 
 # --- Orders Validation Tests ---
 
 def test_validate_orders_valid(spark_session):
-    # ... (test logic unchanged) ...
     ts1 = datetime(2023, 1, 10, 10, 0, 0)
     d1 = date(2023, 1, 10)
     valid_order_data = [
@@ -96,7 +88,6 @@ def test_validate_orders_valid(spark_session):
 
 
 def test_validate_orders_invalid(spark_session):
-    # ... (test logic unchanged - uses temporary nullable schema for creation) ...
     nullable_orders_schema_for_test = StructType([
         StructField("order_num", IntegerType(), nullable=True),
         StructField("order_id", IntegerType(), nullable=True), # Allow null
@@ -118,13 +109,11 @@ def test_validate_orders_invalid(spark_session):
     valid_records, invalid_records = validate_data(input_df, "orders", reference_data=None) # Validate against original schema
     assert valid_records.count() == 1
     assert invalid_records.count() == 4
-    # ... (optional error content checks) ...
 
 
 # --- Order Items Validation Tests ---
 
 def test_validate_order_items_valid(spark_session):
-    # ... (test logic unchanged) ...
     ts1 = datetime(2023, 1, 10, 10, 0, 0)
     d1 = date(2023, 1, 10)
     valid_oi_data = [
@@ -141,7 +130,6 @@ def test_validate_order_items_valid(spark_session):
 
 
 def test_validate_order_items_invalid_nulls(spark_session):
-    # ... (test logic unchanged - uses temporary nullable schema for creation) ...
     nullable_order_items_schema_for_test = StructType([
         StructField("id", IntegerType(), nullable=True), # Allow null
         StructField("order_id", IntegerType(), nullable=True), # Allow null
@@ -166,7 +154,7 @@ def test_validate_order_items_invalid_nulls(spark_session):
     valid_records, invalid_records = validate_data(input_df, "order_items", reference_data=None) # Validate against original schema
     assert valid_records.count() == 1
     assert invalid_records.count() == 4
-    # ... (optional error content checks) ...
+    
 
 
 def test_validate_order_items_invalid_references(spark_session):
@@ -186,5 +174,5 @@ def test_validate_order_items_invalid_references(spark_session):
     valid_records, invalid_records = validate_data(input_df, "order_items", reference_data=reference_data)
     assert valid_records.count() == 1
     assert invalid_records.count() == 3
-    # ... (optional error content checks) ...
+  
 
